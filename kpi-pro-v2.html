@@ -1,0 +1,1327 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KPI自评生成器：把你做的事，变成值钱的话 · 会灵那出品</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+
+/* ── TOKENS ── */
+:root {
+  --bg:        #080c14;
+  --surface:   #0e1420;
+  --card:      #131929;
+  --card2:     #18213a;
+  --border:    rgba(255,255,255,0.07);
+  --border-hi: rgba(99,179,255,0.4);
+  --text:      #dde6f5;
+  --muted:     #6b7fa3;
+  --subtle:    #2d3a55;
+  --blue:      #63b3ff;
+  --blue-dim:  rgba(99,179,255,0.1);
+  --green:     #43d9a0;
+  --green-dim: rgba(67,217,160,0.1);
+  --gold:      #f5c542;
+  --gold-dim:  rgba(245,197,66,0.1);
+  --red:       #ff6b7a;
+  --red-dim:   rgba(255,107,122,0.1);
+  --r:         12px;
+  --font-body: 'Noto Sans SC', sans-serif;
+  --font-disp: 'DM Serif Display', serif;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--font-body);
+  font-size:14px;
+  line-height:1.65;
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+/* Radial glow bg */
+body::before{
+  content:'';
+  position:fixed;
+  top:-20vh; left:50%;
+  transform:translateX(-50%);
+  width:900px; height:600px;
+  background:radial-gradient(ellipse at center,rgba(99,179,255,0.06) 0%,transparent 70%);
+  pointer-events:none; z-index:0;
+}
+
+.wrap{max-width:860px;margin:0 auto;padding:52px 20px 120px;position:relative;z-index:1}
+
+/* ── HERO ── */
+.hero{text-align:center;margin-bottom:56px}
+.hero-eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:5px 14px;border-radius:20px;
+  border:1px solid var(--border-hi);
+  background:var(--blue-dim);
+  font-size:11px;letter-spacing:2px;text-transform:uppercase;
+  color:var(--blue);margin-bottom:20px;
+}
+.hero h1{
+  font-family:var(--font-disp);
+  font-size:clamp(32px,6vw,52px);
+  font-weight:400;letter-spacing:-1px;
+  line-height:1.1;margin-bottom:14px;
+  color:#fff;
+}
+.hero h1 em{font-style:italic;color:var(--blue)}
+.hero p{font-size:15px;color:var(--muted);max-width:480px;margin:0 auto 28px}
+
+/* Features row */
+.features{
+  display:flex;gap:6px;justify-content:center;flex-wrap:wrap;
+  margin-bottom:0;
+}
+.feat{
+  padding:5px 12px;border-radius:20px;
+  border:1px solid var(--border);
+  background:var(--card);
+  font-size:11px;color:var(--muted);
+  display:flex;align-items:center;gap:5px;
+}
+.feat-dot{width:5px;height:5px;border-radius:50%;background:var(--green)}
+
+/* ── STAGE TRACK ── */
+.track{
+  display:flex;align-items:center;
+  margin-bottom:36px;gap:0;
+}
+.track-step{
+  flex:1;display:flex;flex-direction:column;align-items:center;
+  gap:8px;cursor:pointer;
+  opacity:0.4;transition:opacity 0.3s;
+  position:relative;
+}
+.track-step::after{
+  content:'';
+  position:absolute;top:18px;left:calc(50% + 18px);
+  width:calc(100% - 36px);height:1px;
+  background:var(--subtle);
+}
+.track-step:last-child::after{display:none}
+.track-step.active,.track-step.done{opacity:1}
+.track-node{
+  width:36px;height:36px;border-radius:50%;
+  border:1.5px solid var(--subtle);
+  background:var(--card);
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;transition:all 0.3s;z-index:1;
+}
+.track-step.active .track-node{
+  border-color:var(--blue);
+  background:var(--blue-dim);
+  box-shadow:0 0 16px rgba(99,179,255,0.3);
+}
+.track-step.done .track-node{
+  border-color:var(--green);background:var(--green-dim);
+}
+.track-label{font-size:11px;color:var(--muted);white-space:nowrap}
+.track-step.active .track-label{color:var(--blue)}
+
+/* ── PANELS ── */
+.panel{display:none}
+.panel.active{display:block;animation:rise 0.35s cubic-bezier(.22,.68,0,1.2)}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── UPLOAD STAGE ── */
+.upload-card{
+  background:var(--card);
+  border:1.5px dashed var(--border-hi);
+  border-radius:var(--r);
+  padding:60px 32px;
+  text-align:center;
+  cursor:pointer;
+  transition:all 0.25s;
+  position:relative;
+  overflow:hidden;
+}
+.upload-card:hover,.upload-card.over{
+  border-color:var(--blue);
+  background:rgba(99,179,255,0.05);
+}
+.upload-card input[type=file]{
+  position:absolute;inset:0;opacity:0;cursor:pointer;
+}
+.upload-glyph{
+  font-size:52px;margin-bottom:16px;
+  display:block;
+  filter:drop-shadow(0 0 24px rgba(99,179,255,0.4));
+}
+.upload-title{font-size:18px;font-weight:700;margin-bottom:6px}
+.upload-sub{font-size:13px;color:var(--muted)}
+.fmt-pills{
+  display:flex;gap:8px;justify-content:center;margin-top:18px;flex-wrap:wrap;
+}
+.fmt{
+  padding:4px 12px;border-radius:20px;
+  border:1px solid var(--border);
+  font-size:11px;color:var(--muted);
+}
+
+/* Preview strip */
+.preview-strip{
+  margin-top:16px;display:none;
+  background:var(--card);border:1px solid var(--border);
+  border-radius:var(--r);padding:12px 16px;
+  align-items:center;gap:12px;
+}
+.preview-strip.show{display:flex}
+.preview-thumb{
+  width:48px;height:48px;border-radius:6px;
+  object-fit:cover;border:1px solid var(--border);
+  flex-shrink:0;
+}
+.preview-info{flex:1;min-width:0}
+.preview-name{font-size:13px;font-weight:500;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.preview-size{font-size:11px;color:var(--muted)}
+.preview-status{
+  font-size:11px;padding:3px 10px;border-radius:12px;
+  flex-shrink:0;
+}
+.preview-status.ok{background:var(--green-dim);color:var(--green)}
+.preview-status.loading{background:var(--blue-dim);color:var(--blue)}
+
+/* OR divider */
+.or-divider{
+  display:flex;align-items:center;gap:14px;
+  margin:28px 0;color:var(--subtle);font-size:12px;
+}
+.or-divider::before,.or-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* Manual input area */
+.manual-panel{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:var(--r);padding:24px;
+}
+.manual-panel h3{font-size:14px;font-weight:700;margin-bottom:4px}
+.manual-panel p{font-size:12px;color:var(--muted);margin-bottom:14px}
+
+/* Parsing overlay */
+.parsing-state{
+  display:none;
+  text-align:center;padding:80px 20px;
+}
+.parsing-state.active{display:block}
+.parse-ring{
+  width:56px;height:56px;margin:0 auto 20px;
+  border-radius:50%;
+  border:2px solid var(--border);
+  border-top-color:var(--blue);
+  animation:spin 0.9s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.parse-msg{font-size:13px;color:var(--muted)}
+.parse-msg strong{color:var(--text);display:block;margin-bottom:4px;font-size:15px}
+
+/* ── EDITOR STAGE ── */
+.editor-top{
+  display:flex;align-items:flex-start;
+  justify-content:space-between;
+  margin-bottom:20px;gap:16px;flex-wrap:wrap;
+}
+.editor-top h2{font-size:20px;font-weight:700}
+.editor-top p{font-size:12px;color:var(--muted);margin-top:3px}
+
+.weight-pill{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 16px;border-radius:var(--r);
+  border:1px solid;font-size:12px;white-space:nowrap;
+}
+.weight-pill.ok{background:var(--green-dim);border-color:var(--green);color:var(--green)}
+.weight-pill.warn{background:var(--gold-dim);border-color:var(--gold);color:var(--gold)}
+
+.cat-cards{display:flex;flex-direction:column;gap:10px}
+
+.cat-card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:var(--r);overflow:hidden;
+  transition:border-color 0.2s;
+}
+.cat-card:focus-within{border-color:rgba(99,179,255,0.3)}
+
+.cat-head{
+  padding:14px 18px;background:var(--card2);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;
+}
+.cat-badge{
+  width:28px;height:28px;border-radius:7px;
+  background:var(--blue-dim);color:var(--blue);
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:700;flex-shrink:0;
+}
+.cat-name-inp{
+  flex:1;background:none;border:none;
+  color:var(--text);font-family:var(--font-body);
+  font-size:14px;font-weight:700;outline:none;
+}
+.cat-name-inp::placeholder{color:var(--subtle)}
+.wt-inp{
+  width:54px;text-align:center;
+  font-size:14px;font-weight:700;color:var(--blue);
+  background:var(--blue-dim);border:none;border-radius:6px;
+  padding:4px 0;outline:none;font-family:var(--font-body);
+}
+.wt-pct{font-size:12px;color:var(--muted)}
+.del-cat{
+  padding:5px 10px;border-radius:6px;border:none;
+  background:var(--red-dim);color:var(--red);
+  font-size:11px;cursor:pointer;font-family:var(--font-body);
+  transition:all 0.15s;
+}
+.del-cat:hover{background:var(--red);color:#fff}
+
+.cat-body{padding:16px 18px}
+
+.subs-list{margin-bottom:12px}
+.sub-row{
+  display:flex;gap:8px;align-items:center;margin-bottom:6px;
+}
+.sub-n{
+  width:20px;height:20px;border-radius:4px;
+  background:var(--card2);color:var(--muted);
+  font-size:10px;display:flex;align-items:center;
+  justify-content:center;flex-shrink:0;
+}
+.sub-inp{flex:1}
+.del-sub{
+  width:26px;height:26px;border-radius:4px;border:none;
+  background:var(--red-dim);color:var(--red);
+  cursor:pointer;font-size:13px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;transition:opacity 0.15s;
+}
+.sub-row:hover .del-sub{opacity:1}
+
+.ghost-btn{
+  display:flex;align-items:center;gap:6px;
+  padding:7px 14px;background:none;
+  border:1px dashed var(--border);border-radius:7px;
+  color:var(--muted);font-size:12px;cursor:pointer;
+  font-family:var(--font-body);transition:all 0.2s;
+}
+.ghost-btn:hover{border-color:var(--blue);color:var(--blue)}
+.ghost-btn.full{width:100%;justify-content:center;padding:12px;margin-top:10px}
+
+/* ── FILL STAGE ── */
+.score-header{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:var(--r);padding:20px 24px;
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:24px;flex-wrap:wrap;gap:16px;
+}
+.score-header-left{}
+.score-header-label{font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase}
+.live-score{
+  font-family:var(--font-disp);
+  font-size:52px;color:var(--blue);
+  line-height:1;transition:color 0.4s;
+  letter-spacing:-2px;
+}
+.score-sub{font-size:11px;color:var(--muted);margin-top:2px}
+
+.fill-cards{display:flex;flex-direction:column;gap:14px}
+
+.fill-card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:var(--r);overflow:hidden;
+}
+.fill-head{
+  padding:14px 18px;background:var(--card2);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;
+}
+.fill-cat-name{font-weight:700;font-size:14px;flex:1}
+.fill-cat-wt{font-size:11px;color:var(--muted)}
+.fill-body{padding:18px}
+
+.sub-ref-box{
+  background:var(--bg);border:1px solid var(--border);
+  border-radius:8px;margin-bottom:14px;overflow:hidden;
+}
+.sub-ref-row{
+  padding:8px 14px;border-bottom:1px solid var(--border);
+  display:flex;gap:8px;font-size:12px;color:var(--muted);
+}
+.sub-ref-row:last-child{border-bottom:none}
+.sub-ref-idx{color:var(--blue);font-weight:700;flex-shrink:0}
+
+/* Before/after comparison layout */
+.compare-layout{
+  display:grid;grid-template-columns:1fr 1fr;
+  gap:10px;margin-bottom:14px;
+}
+@media(max-width:600px){.compare-layout{grid-template-columns:1fr}}
+.compare-col label{
+  display:block;font-size:10px;
+  letter-spacing:1px;text-transform:uppercase;
+  color:var(--muted);margin-bottom:6px;
+}
+.compare-col.after label{color:var(--blue)}
+
+/* Score row */
+.score-row{
+  display:flex;align-items:center;gap:12px;margin-bottom:10px;
+}
+.score-range{
+  flex:1;height:4px;accent-color:var(--blue);
+  cursor:pointer;padding:0;border:none;background:none;
+}
+.score-box{
+  width:60px;text-align:center;
+  font-size:20px;font-weight:700;color:var(--blue);
+  padding:4px 0;
+}
+.quick-row{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.qbtn{
+  padding:4px 11px;border-radius:20px;
+  border:1px solid;font-size:11px;cursor:pointer;
+  background:none;font-family:var(--font-body);
+  transition:all 0.15s;
+}
+.qbtn:hover{transform:scale(1.04)}
+
+/* AI button */
+.ai-btn{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:10px 20px;background:var(--blue-dim);
+  border:1px solid var(--blue);border-radius:8px;
+  color:var(--blue);font-size:12px;font-weight:500;
+  cursor:pointer;font-family:var(--font-body);
+  transition:all 0.2s;
+  position:relative;overflow:hidden;
+}
+.ai-btn::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgba(99,179,255,0.15),transparent);
+  transform:translateX(-100%);
+  transition:transform 0.6s;
+}
+.ai-btn:hover::before{transform:translateX(100%)}
+.ai-btn:hover{background:var(--blue);color:#080c14}
+.ai-btn:disabled{opacity:0.4;cursor:not-allowed}
+.ai-spin{
+  width:12px;height:12px;border-radius:50%;
+  border:2px solid currentColor;border-top-color:transparent;
+  animation:spin 0.6s linear infinite;display:none;
+}
+.ai-btn.loading .ai-spin{display:block}
+.ai-btn.loading .ai-lbl{display:none}
+
+/* ── RESULT STAGE ── */
+.result-hero{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:var(--r);padding:24px 28px;
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:24px;flex-wrap:wrap;gap:16px;
+}
+.result-score-big{
+  font-family:var(--font-disp);
+  font-size:64px;line-height:1;letter-spacing:-3px;
+  color:var(--blue);
+}
+.result-grade{
+  font-size:12px;padding:4px 12px;border-radius:20px;
+  display:inline-block;margin-top:6px;
+}
+
+.result-table{
+  width:100%;border-collapse:collapse;
+  background:var(--card);border-radius:var(--r);
+  overflow:hidden;margin-bottom:16px;
+}
+.result-table th{
+  padding:10px 14px;font-size:10px;
+  letter-spacing:1px;text-transform:uppercase;
+  color:var(--muted);background:var(--card2);
+  text-align:left;border-bottom:1px solid var(--border);
+}
+.result-table td{
+  padding:10px 14px;font-size:13px;
+  border-bottom:1px solid var(--border);
+}
+.result-table tr:last-child td{border-bottom:none}
+.bar-wrap{height:4px;background:var(--border);border-radius:2px;margin-top:4px}
+.bar-fill{height:100%;border-radius:2px;transition:width 0.8s cubic-bezier(.22,.68,0,1.2)}
+
+.result-cards{display:flex;flex-direction:column;gap:10px}
+
+.res-card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:var(--r);overflow:hidden;
+}
+.res-head{
+  padding:12px 18px;background:var(--card2);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.res-title{font-weight:700;font-size:14px}
+.res-score{font-size:22px;font-weight:700}
+.res-body{padding:16px 18px}
+.res-text{
+  font-size:13px;line-height:1.9;
+  white-space:pre-wrap;word-break:break-all;
+  outline:none;min-height:40px;
+}
+.res-text:focus{
+  background:rgba(99,179,255,0.04);
+  border-radius:6px;padding:8px;
+  margin:-8px;
+}
+
+/* Export box */
+.export-wrap{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:var(--r);overflow:hidden;margin-top:16px;
+}
+.export-head{
+  padding:14px 18px;background:var(--card2);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.export-body{padding:18px}
+.export-text{
+  background:var(--bg);border:1px solid var(--border);
+  border-radius:8px;padding:16px;font-size:12px;
+  line-height:1.9;white-space:pre-wrap;
+  max-height:280px;overflow-y:auto;
+  color:var(--muted);word-break:break-all;
+}
+
+/* ── COMMON ── */
+input[type=text],input[type=number],textarea,select{
+  width:100%;background:var(--bg);border:1px solid var(--border);
+  border-radius:8px;color:var(--text);
+  font-family:var(--font-body);font-size:13px;
+  padding:10px 14px;outline:none;transition:border-color 0.2s;
+  resize:vertical;
+}
+input:focus,textarea:focus,select:focus{border-color:rgba(99,179,255,0.5)}
+textarea{min-height:70px}
+
+.btn{
+  padding:11px 24px;border-radius:8px;font-size:13px;
+  font-weight:500;cursor:pointer;border:none;
+  font-family:var(--font-body);transition:all 0.2s;
+  display:inline-flex;align-items:center;gap:7px;
+}
+.btn-primary{background:var(--blue);color:#080c14}
+.btn-primary:hover{filter:brightness(1.1);transform:translateY(-1px);box-shadow:0 6px 24px rgba(99,179,255,0.25)}
+.btn-primary:disabled{opacity:0.4;cursor:not-allowed;transform:none;box-shadow:none}
+.btn-ghost{background:var(--card2);color:var(--text);border:1px solid var(--border)}
+.btn-ghost:hover{border-color:var(--blue)}
+.btn-green{background:var(--green);color:#080c14}
+.btn-green:hover{filter:brightness(1.1);transform:translateY(-1px)}
+.btn-sm{padding:7px 16px;font-size:12px}
+
+.nav{
+  display:flex;gap:10px;justify-content:flex-end;
+  margin-top:28px;padding-top:20px;border-top:1px solid var(--border);
+}
+
+.api-banner{
+  background:var(--gold-dim);border:1px solid var(--gold);
+  border-radius:var(--r);padding:12px 16px;
+  font-size:12px;color:var(--gold);
+  display:flex;align-items:flex-start;gap:10px;
+  margin-bottom:20px;
+}
+.api-banner-body{flex:1}
+.api-key-row{display:flex;gap:8px;margin-top:8px}
+.api-key-row input{flex:1;font-family:monospace;font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-eyebrow">✦ AI驱动 · 年度绩效 · 会灵那出品</div>
+    <h1>KPI 自评生成器<br><em>把你做的事，变成值钱的话</em></h1>
+    <p>上传KPI表截图，AI自动读懂结构——你只需要填几个关键数据，剩下的交给我</p>
+    <div class="features">
+      <div class="feat"><div class="feat-dot"></div>截图/PDF自动识别</div>
+      <div class="feat"><div class="feat-dot"></div>定性+定量混合指标</div>
+      <div class="feat"><div class="feat-dot"></div>多级子指标+权重</div>
+      <div class="feat"><div class="feat-dot"></div>实时加权总分</div>
+      <div class="feat"><div class="feat-dot"></div>一键导出Excel</div>
+    </div>
+  </div>
+
+  <!-- TRACK -->
+  <div class="track" id="track">
+    <div class="track-step active" id="ts0" onclick="jumpTo(0)">
+      <div class="track-node">📤</div>
+      <div class="track-label">上传识别</div>
+    </div>
+    <div class="track-step" id="ts1" onclick="jumpTo(1)">
+      <div class="track-node">✏️</div>
+      <div class="track-label">确认结构</div>
+    </div>
+    <div class="track-step" id="ts2" onclick="jumpTo(2)">
+      <div class="track-node">📝</div>
+      <div class="track-label">填写自评</div>
+    </div>
+    <div class="track-step" id="ts3" onclick="jumpTo(3)">
+      <div class="track-node">📊</div>
+      <div class="track-label">汇总导出</div>
+    </div>
+  </div>
+
+  <!-- ══ STAGE 0: UPLOAD ══ -->
+  <div class="panel active" id="s0">
+
+    <!-- API key banner -->
+    <div class="api-banner" id="api-banner">
+      <span>🔑</span>
+      <div class="api-banner-body">
+        <strong>需要 API Key 才能使用AI功能</strong>（上传识别、自动生成描述）<br>
+        在 <a href="https://console.anthropic.com" target="_blank" style="color:var(--gold)">console.anthropic.com</a> 获取，填在下方。Key 只存在你的浏览器里，不会上传。
+        <div class="api-key-row">
+          <input type="password" id="api-key-input" placeholder="sk-ant-api03-...">
+          <button class="btn btn-sm btn-ghost" onclick="saveKey()">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Key status bar (shown when key is saved) -->
+    <div id="key-status-bar" style="display:none;align-items:center;gap:10px;padding:10px 16px;background:rgba(67,217,160,0.08);border:1px solid rgba(67,217,160,0.3);border-radius:10px;margin-bottom:16px;font-size:12px;">
+      <span style="color:var(--green)">🔑</span>
+      <span id="key-status-txt" style="color:var(--green);flex:1"></span>
+      <button onclick="resetKey()" style="padding:4px 12px;border-radius:6px;border:1px solid rgba(67,217,160,0.4);background:none;color:var(--green);font-size:11px;cursor:pointer;font-family:var(--font-body);">重新输入</button>
+    </div>
+
+    <div class="upload-card" id="drop-zone">
+      <input type="file" id="file-in" accept="image/*,.pdf" onchange="handleFile(this.files[0])">
+      <span class="upload-glyph">🗂️</span>
+      <div class="upload-title">拖拽或点击上传 KPI 表</div>
+      <div class="upload-sub">支持截图、拍照、PDF — AI 自动识别所有指标结构</div>
+      <div class="fmt-pills">
+        <span class="fmt">📷 JPG / PNG</span>
+        <span class="fmt">📄 PDF</span>
+        <span class="fmt">🖼 截图</span>
+        <span class="fmt">📱 手机拍照</span>
+      </div>
+    </div>
+
+    <div class="preview-strip" id="preview-strip">
+      <img class="preview-thumb" id="preview-thumb" src="" alt="">
+      <div class="preview-info">
+        <div class="preview-name" id="preview-name"></div>
+        <div class="preview-size" id="preview-size"></div>
+      </div>
+      <div class="preview-status loading" id="preview-status">识别中…</div>
+    </div>
+
+    <!-- Parsing state -->
+    <div class="parsing-state" id="parsing-state">
+      <div class="parse-ring"></div>
+      <div class="parse-msg">
+        <strong id="parse-title">AI 正在读懂你的KPI表</strong>
+        <span id="parse-sub">识别指标结构、子条目和权重…</span>
+      </div>
+    </div>
+
+    <div class="or-divider">或者直接描述你的KPI</div>
+
+    <div class="manual-panel">
+      <h3>文字输入</h3>
+      <p>粘贴KPI表文字内容，或用自然语言描述你的指标</p>
+      <textarea id="manual-txt" rows="5" placeholder="例：
+1. 提升组织效率（权重25%）：调整组织架构、引入核心人才、推进AI工具落地
+2. 人才梯队建设（权重25%）：制定培养计划、组织管理培训、落实PIP
+3. HR运营迭代（权重20%）：薪酬准确率100%、SSC满意度提升
+4. 文化建设（权重15%）：敬业度调研、文化活动落地
+5. 行政管理（权重15%）：预算精细化、数字化改造"></textarea>
+      <div style="display:flex;gap:10px;margin-top:12px;align-items:center">
+        <button class="btn btn-primary" onclick="parseManual()">✦ AI 解析结构</button>
+        <button class="btn btn-ghost" onclick="buildManual()">手动搭建 →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ STAGE 1: EDITOR ══ -->
+  <div class="panel" id="s1">
+    <div class="editor-top">
+      <div>
+        <h2>确认 KPI 结构</h2>
+        <p>AI已识别以下结构，可以直接编辑</p>
+      </div>
+      <div class="weight-pill ok" id="wt-pill">
+        <span id="wt-icon">✓</span> <span id="wt-val">总权重 100%</span>
+      </div>
+    </div>
+
+    <div class="cat-cards" id="cat-cards"></div>
+    <button class="ghost-btn full" onclick="addCat()">＋ 添加 KPI 大类</button>
+
+    <div class="nav">
+      <button class="btn btn-ghost" onclick="go(0)">← 重新上传</button>
+      <button class="btn btn-primary" onclick="toFill()">下一步：填写自评 →</button>
+    </div>
+  </div>
+
+  <!-- ══ STAGE 2: FILL ══ -->
+  <div class="panel" id="s2">
+    <div class="score-header">
+      <div class="score-header-left">
+        <div class="score-header-label">加权总分</div>
+        <div class="live-score" id="live-score">—</div>
+        <div class="score-sub">满分 100 分 · 实时更新</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="genAll()" id="gen-all-btn">✦ 全部 AI 生成</button>
+    </div>
+
+    <div class="fill-cards" id="fill-cards"></div>
+
+    <div class="nav">
+      <button class="btn btn-ghost" onclick="go(1)">← 修改结构</button>
+      <button class="btn btn-green" onclick="buildResult()">生成汇总报告 ✦</button>
+    </div>
+  </div>
+
+  <!-- ══ STAGE 3: RESULT ══ -->
+  <div class="panel" id="s3">
+    <div class="result-hero">
+      <div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:4px">你的年度KPI加权总分</div>
+        <div class="result-score-big" id="res-score-big">—</div>
+        <div class="result-grade" id="res-grade"></div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px">点击各项描述可直接编辑</div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+          <button class="btn btn-sm btn-ghost" onclick="copyAll()">📋 复制全文</button>
+          <button class="btn btn-sm btn-green" onclick="dlExcel()">⬇ 下载 Excel</button>
+        </div>
+      </div>
+    </div>
+
+    <table class="result-table" id="res-table"></table>
+    <div class="result-cards" id="res-cards" style="margin-top:16px"></div>
+
+    <div class="export-wrap">
+      <div class="export-head">
+        <span style="font-weight:700">📋 完整自评文本</span>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-sm btn-ghost" onclick="copyAll()">复制</button>
+          <button class="btn btn-sm btn-green" onclick="dlExcel()">Excel</button>
+        </div>
+      </div>
+      <div class="export-body">
+        <div class="export-text" id="export-txt"></div>
+      </div>
+    </div>
+
+    <div class="nav">
+      <button class="btn btn-ghost" onclick="go(2)">← 返回修改</button>
+      <button class="btn btn-green" onclick="dlExcel()">⬇ 下载 Excel</button>
+      <button class="btn btn-primary" onclick="copyAll()">📋 复制全文</button>
+    </div>
+  </div>
+
+</div><!-- /wrap -->
+
+<script>
+// ═══════════════════════════════════════
+//  CONFIG
+// ═══════════════════════════════════════
+const ENDPOINT = 'https://api.zengen.art/v1/messages'; // Cloudflare Worker
+
+
+let API_KEY = localStorage.getItem('kpi_apikey') || '';
+if (API_KEY) {
+  document.getElementById('api-key-input').value = API_KEY;
+  document.getElementById('api-banner').style.display = 'none';
+  document.getElementById('key-status-bar').style.display = 'flex';
+  document.getElementById('key-status-txt').textContent = 'API Key 已配置 · ' + API_KEY.substring(0,14) + '…';
+}
+
+function saveKey() {
+  const k = document.getElementById('api-key-input').value.trim();
+  if (!k) return;
+  API_KEY = k;
+  localStorage.setItem('kpi_apikey', k);
+  document.getElementById('api-banner').style.display = 'none';
+  document.getElementById('key-status-bar').style.display = 'flex';
+  document.getElementById('key-status-txt').textContent = 'API Key 已配置 · ' + k.substring(0,14) + '…';
+  showToast('API Key 已保存 ✓');
+}
+
+function resetKey() {
+  API_KEY = '';
+  localStorage.removeItem('kpi_apikey');
+  document.getElementById('api-key-input').value = '';
+  document.getElementById('api-banner').style.display = 'flex';
+  document.getElementById('key-status-bar').style.display = 'none';
+  showToast('已清除 API Key');
+}
+
+function getHeaders() {
+  const h = { 'Content-Type': 'application/json' };
+  if (API_KEY) h['Authorization'] = 'Bearer ' + API_KEY;
+  return h;
+}
+
+// Convert Anthropic-style body to OpenRouter/OpenAI format
+function toOR(anthropicBody) {
+  const msgs = anthropicBody.messages.map(m => {
+    if (typeof m.content === 'string') return { role: m.role, content: m.content };
+    // Convert content array (image/text blocks)
+    const parts = m.content.map(block => {
+      if (block.type === 'text') return { type: 'text', text: block.text };
+      if (block.type === 'image') return {
+        type: 'image_url',
+        image_url: { url: 'data:' + block.source.media_type + ';base64,' + block.source.data }
+      };
+      if (block.type === 'document') return {
+        type: 'image_url',
+        image_url: { url: 'data:' + block.source.media_type + ';base64,' + block.source.data }
+      };
+      return { type: 'text', text: JSON.stringify(block) };
+    });
+    return { role: m.role, content: parts };
+  });
+  const body = {
+    model: 'anthropic/claude-sonnet-4-5',
+    max_tokens: anthropicBody.max_tokens || 1000,
+    messages: msgs,
+  };
+  if (anthropicBody.system) {
+    body.messages = [{ role: 'system', content: anthropicBody.system }, ...body.messages];
+  }
+  return body;
+}
+
+// Parse OpenRouter response back to Anthropic format
+function fromOR(data) {
+  const text = data.choices?.[0]?.message?.content || '';
+  return { content: [{ type: 'text', text }] };
+}
+
+// ═══════════════════════════════════════
+//  OPENROUTER FETCH WRAPPER
+// ═══════════════════════════════════════
+async function orFetch(anthropicBody) {
+  const orBody = toOR(anthropicBody);
+  const res = await fetch(ENDPOINT, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(orBody)
+  });
+  const raw = await res.json();
+  if (raw.error) return raw; // pass error through
+  return fromOR(raw);
+}
+
+// ═══════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════
+let cats = []; // [{name, weight, subs:[]}]
+let cur = 0;
+
+// ═══════════════════════════════════════
+//  STAGE NAV
+// ═══════════════════════════════════════
+function go(n) {
+  document.getElementById('s'+cur).classList.remove('active');
+  document.getElementById('ts'+cur).classList.remove('active');
+  if(n > cur) document.getElementById('ts'+cur).classList.add('done');
+  cur = n;
+  document.getElementById('s'+n).classList.add('active');
+  document.getElementById('ts'+n).classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function jumpTo(n) { if(n < cur) go(n); }
+
+// ═══════════════════════════════════════
+//  UPLOAD & PARSE
+// ═══════════════════════════════════════
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e=>{e.preventDefault();dz.classList.add('over')});
+dz.addEventListener('dragleave', ()=>dz.classList.remove('over'));
+dz.addEventListener('drop', e=>{e.preventDefault();dz.classList.remove('over');handleFile(e.dataTransfer.files[0])});
+
+async function handleFile(file) {
+  if (!file) return;
+
+  // Preview
+  const strip = document.getElementById('preview-strip');
+  document.getElementById('preview-name').textContent = file.name;
+  document.getElementById('preview-size').textContent = (file.size/1024).toFixed(0) + ' KB';
+  strip.classList.add('show');
+
+  if (file.type.startsWith('image/')) {
+    const url = URL.createObjectURL(file);
+    document.getElementById('preview-thumb').src = url;
+  }
+
+  const b64 = await toB64(file);
+  const isImg = file.type.startsWith('image/');
+  const mt = isImg ? (file.type || 'image/jpeg') : 'application/pdf';
+
+  showParsing('AI 正在读懂你的KPI表', '识别指标结构、子条目和权重…');
+
+  const extractPrompt = `请分析这张KPI表图片，提取所有KPI指标结构。
+
+输出格式（严格JSON，不要任何markdown、代码块、解释文字）：
+{"categories":[{"name":"KPI大类名称","weight":25,"subs":["子指标1完整描述","子指标2完整描述"]}]}
+
+规则：
+- weight为整数（不带%）
+- 所有weight之和必须等于100
+- subs包含该大类下所有子指标的完整文字
+- 如无子指标则subs为空数组[]`;
+
+  try {
+    const body = {
+      model:'anthropic/claude-sonnet-4-5', max_tokens:1500,
+      system: '你是数据提取助手。只输出合法JSON，不输出任何其他内容，不使用markdown代码块。',
+      messages:[{role:'user',content:[
+        {type: isImg ? 'image' : 'document',
+         source:{type:'base64',media_type:mt,data:b64}},
+        {type:'text', text: extractPrompt}
+      ]}]
+    };
+    const res = await orFetch(body);
+    const data = res;
+
+    console.log('API raw response:', JSON.stringify(data).substring(0,500));
+
+    if (data.error) throw new Error('API错误：' + (data.error.message||JSON.stringify(data.error)));
+
+    const rawTxt = (data.content?.[0]?.text || '').trim();
+    console.log('Model output:', rawTxt.substring(0,300));
+
+    // 多重解析策略
+    let parsed = null;
+    // 1. 直接解析
+    try { parsed = JSON.parse(rawTxt); } catch(e1) {
+      // 2. 提取最外层 {} 对象
+      const m1 = rawTxt.match(/\{[\s\S]*\}/);
+      if (m1) try { parsed = JSON.parse(m1[0]); } catch(e2) {
+        // 3. 去掉代码块后解析
+        const m2 = rawTxt.replace(/```[\s\S]*?```/g,'').match(/\{[\s\S]*\}/);
+        if (m2) try { parsed = JSON.parse(m2[0]); } catch {}
+      }
+    }
+
+    if (!parsed?.categories?.length) {
+      throw new Error(`模型返回内容无法解析为KPI结构。\n原始输出（前200字）：\n${rawTxt.substring(0,200)}`);
+    }
+
+    cats = parsed.categories;
+    hideParsing();
+    document.getElementById('preview-status').textContent = `识别完成 · ${cats.length}个大类`;
+    document.getElementById('preview-status').className = 'preview-status ok';
+    renderEditor(); go(1);
+  } catch(e) {
+    hideParsing();
+    console.error('Parse failed:', e);
+    document.getElementById('preview-status').textContent = '识别失败，请手动输入';
+    document.getElementById('preview-status').className = 'preview-status';
+    alert('识别失败：' + e.message + '\n\n可以改用下方"文字输入"方式手动录入KPI结构');
+  }
+}
+
+function toB64(file) {
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=e=>res(e.target.result.split(',')[1]);
+    r.onerror=rej;
+    r.readAsDataURL(file);
+  });
+}
+
+function showParsing(title, sub) {
+  document.getElementById('parse-title').textContent = title;
+  document.getElementById('parse-sub').textContent = sub;
+  document.getElementById('parsing-state').classList.add('active');
+  document.getElementById('drop-zone').style.opacity = '0.3';
+}
+function hideParsing() {
+  document.getElementById('parsing-state').classList.remove('active');
+  document.getElementById('drop-zone').style.opacity = '1';
+}
+
+async function parseManual() {
+  const txt = document.getElementById('manual-txt').value.trim();
+  if (!txt) { alert('请先输入KPI结构'); return; }
+  showParsing('解析中…','');
+  const prompt = `将以下KPI描述解析为JSON，只输出JSON：
+{"categories":[{"name":"大类名","weight":数字,"subs":["子指标"]}]}
+如无明确权重则均分到总和100。内容：\n${txt}`;
+  try {
+    const data = await orFetch({
+      model:'anthropic/claude-sonnet-4-5', max_tokens:1000,
+      messages:[{role:'user',content:prompt}]
+    });
+    const m = (data.content?.[0]?.text||'').match(/\{[\s\S]*\}/);
+    cats = m ? (JSON.parse(m[0]).categories||[]) : fallbackParse(txt);
+  } catch { cats = fallbackParse(txt); }
+  hideParsing(); renderEditor(); go(1);
+}
+
+function buildManual() {
+  cats = [{name:'KPI指标1',weight:40,subs:['子指标1','子指标2']},
+          {name:'KPI指标2',weight:30,subs:['子指标1']},
+          {name:'KPI指标3',weight:30,subs:[]}];
+  renderEditor(); go(1);
+}
+
+function fallbackParse(txt) {
+  return txt.split('\n').filter(l=>l.trim()).map(l=>{
+    const wm = l.match(/(\d+)%/);
+    const name = l.replace(/^\d+[.、]?\s*/,'').replace(/[（(].*?[)）]/g,'').split(/[：:]/)[0].trim();
+    const sm = l.match(/[：:](.*)/);
+    const subs = sm ? sm[1].split(/[,，、]/).map(s=>s.trim()).filter(Boolean) : [];
+    return {name, weight: wm ? parseInt(wm[1]) : 20, subs};
+  });
+}
+
+// ═══════════════════════════════════════
+//  EDITOR
+// ═══════════════════════════════════════
+function renderEditor() {
+  const c = document.getElementById('cat-cards');
+  c.innerHTML = '';
+  cats.forEach((cat,ci) => c.appendChild(makeCatCard(cat,ci)));
+  updateWt();
+}
+
+function makeCatCard(cat, ci) {
+  const d = document.createElement('div');
+  d.className = 'cat-card'; d.id = 'cc'+ci;
+  const subsH = (cat.subs||[]).map((s,si)=>`
+    <div class="sub-row" id="sr${ci}_${si}">
+      <div class="sub-n">${si+1}</div>
+      <input type="text" class="sub-inp" value="${esc(s)}" placeholder="子指标描述" oninput="cats[${ci}].subs[${si}]=this.value">
+      <button class="del-sub" onclick="delSub(${ci},${si})">×</button>
+    </div>`).join('');
+  d.innerHTML = `
+    <div class="cat-head">
+      <div class="cat-badge">${ci+1}</div>
+      <input class="cat-name-inp" value="${esc(cat.name)}" placeholder="KPI大类名称" oninput="cats[${ci}].name=this.value">
+      <input class="wt-inp" type="number" min="0" max="100" value="${cat.weight}" oninput="cats[${ci}].weight=+this.value;updateWt()">
+      <span class="wt-pct">%</span>
+      <button class="del-cat" onclick="delCat(${ci})">删除</button>
+    </div>
+    <div class="cat-body">
+      <div class="subs-list" id="sl${ci}">${subsH}</div>
+      <button class="ghost-btn" onclick="addSub(${ci})">＋ 添加子指标</button>
+    </div>`;
+  return d;
+}
+
+function addSub(ci) {
+  const si = cats[ci].subs.length;
+  cats[ci].subs.push('');
+  const sl = document.getElementById('sl'+ci);
+  const row = document.createElement('div');
+  row.className='sub-row'; row.id=`sr${ci}_${si}`;
+  row.innerHTML=`<div class="sub-n">${si+1}</div>
+    <input type="text" class="sub-inp" placeholder="子指标描述" oninput="cats[${ci}].subs[${si}]=this.value" style="opacity:1">
+    <button class="del-sub" onclick="delSub(${ci},${si})" style="opacity:1">×</button>`;
+  sl.appendChild(row);
+  row.querySelector('input').focus();
+}
+function delSub(ci,si){cats[ci].subs.splice(si,1);renderEditor()}
+function addCat(){cats.push({name:'新指标',weight:0,subs:[]});renderEditor();setTimeout(()=>document.getElementById('cc'+(cats.length-1))?.scrollIntoView({behavior:'smooth'}),100)}
+function delCat(ci){if(cats.length<=1){showToast('至少保留一个KPI大类');return}cats.splice(ci,1);renderEditor()}
+
+function updateWt() {
+  const total = cats.reduce((s,c)=>s+(+c.weight||0),0);
+  const pill = document.getElementById('wt-pill');
+  document.getElementById('wt-val').textContent = `总权重 ${total}%`;
+  document.getElementById('wt-icon').textContent = total===100?'✓':'⚠';
+  pill.className = 'weight-pill ' + (total===100?'ok':'warn');
+}
+
+function toFill() {
+  const total = cats.reduce((s,c)=>s+(+c.weight||0),0);
+  if (total!==100 && !confirm(`权重总和为${total}%，确定继续？`)) return;
+  buildFillCards(); go(2);
+}
+
+// ═══════════════════════════════════════
+//  FILL
+// ═══════════════════════════════════════
+function buildFillCards() {
+  const area = document.getElementById('fill-cards');
+  area.innerHTML = '';
+  cats.forEach((cat,ci) => area.appendChild(makeFillCard(cat,ci)));
+  updateLive();
+}
+
+function makeFillCard(cat, ci) {
+  const d = document.createElement('div');
+  d.className = 'fill-card';
+  const subsRef = cat.subs.length ?
+    `<div class="sub-ref-box">${cat.subs.map((s,si)=>`
+      <div class="sub-ref-row"><span class="sub-ref-idx">「${si+1}」</span>${esc(s)}</div>`).join('')}
+    </div>` : '';
+
+  d.innerHTML = `
+    <div class="fill-head">
+      <div class="cat-badge">${ci+1}</div>
+      <div class="fill-cat-name">${esc(cat.name)}</div>
+      <div class="fill-cat-wt">权重 ${cat.weight}%</div>
+    </div>
+    <div class="fill-body">
+      ${subsRef}
+      <div class="compare-layout">
+        <div class="compare-col">
+          <label>你的完成情况（关键事实/数据）</label>
+          <textarea id="inp${ci}" placeholder="用大白话写你做了什么、关键数据是多少&#10;例：组织5场培训，200人参与，满意度91%" rows="4"></textarea>
+        </div>
+        <div class="compare-col after">
+          <label>✦ AI 生成的绩效描述</label>
+          <textarea id="out${ci}" placeholder="点击左边的「AI 生成」按钮…" rows="4" style="border-color:rgba(99,179,255,0.2)"></textarea>
+        </div>
+      </div>
+      <div style="margin-bottom:14px">
+        <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">自评分数（60–100）</div>
+        <div class="score-row">
+          <input type="range" class="score-range" id="rng${ci}" min="60" max="100" value="82" oninput="syncR(${ci})">
+          <input type="number" class="score-box" id="scr${ci}" min="60" max="100" value="82" oninput="syncN(${ci})">
+        </div>
+        <div class="quick-row">
+          <button class="qbtn" style="color:var(--red);border-color:var(--red)" onclick="qs(${ci},65)">未达成 65</button>
+          <button class="qbtn" style="color:var(--gold);border-color:var(--gold)" onclick="qs(${ci},75)">基本达成 75</button>
+          <button class="qbtn" style="color:var(--green);border-color:var(--green)" onclick="qs(${ci},85)">达成 85</button>
+          <button class="qbtn" style="color:var(--blue);border-color:var(--blue)" onclick="qs(${ci},95)">超额 95</button>
+        </div>
+      </div>
+      <button class="ai-btn" id="aib${ci}" onclick="genOne(${ci})">
+        <div class="ai-spin"></div>
+        <span class="ai-lbl">✦ AI 生成绩效描述</span>
+      </button>
+    </div>`;
+  return d;
+}
+
+function syncR(ci){document.getElementById('scr'+ci).value=document.getElementById('rng'+ci).value;updateLive()}
+function syncN(ci){document.getElementById('rng'+ci).value=document.getElementById('scr'+ci).value;updateLive()}
+function qs(ci,v){document.getElementById('scr'+ci).value=v;document.getElementById('rng'+ci).value=v;updateLive()}
+function getScr(ci){return parseInt(document.getElementById('scr'+ci)?.value)||82}
+
+function updateLive() {
+  let t=0;
+  cats.forEach((_,i)=>t+=getScr(i)*cats[i].weight/100);
+  const n=Math.round(t*10)/10;
+  const el=document.getElementById('live-score');
+  if(el){
+    el.textContent=n;
+    el.style.color=n>=90?'var(--green)':n>=80?'var(--blue)':n>=70?'var(--gold)':'var(--red)';
+  }
+}
+
+async function genOne(ci) {
+  const inp = document.getElementById('inp'+ci)?.value.trim();
+  if (!inp) { showToast('请先填写完成情况'); return; }
+  const btn = document.getElementById('aib'+ci);
+  btn.classList.add('loading'); btn.disabled=true;
+  const cat=cats[ci];
+  const subsLine=cat.subs.length?cat.subs.map((s,i)=>`${i+1}. ${s}`).join('\n'):'（无子指标）';
+  const prompt=`你是资深HR，帮员工写年度KPI绩效自评的"完成情况"描述。
+
+KPI大类：${cat.name}（权重${cat.weight}%）
+子指标：\n${subsLine}
+
+员工原始输入：\n${inp}
+
+要求：数据优先，结果先行，用①②③对应子指标，200字以内，主动语态，大厂HR汇报风格。直接输出描述，无需任何前言。`;
+  try {
+    const r=await orFetch({model:'anthropic/claude-sonnet-4-5',max_tokens:1000,messages:[{role:'user',content:prompt}]});
+    const d=r;
+    document.getElementById('out'+ci).value=d.content?.[0]?.text||'';
+  } catch {
+    document.getElementById('out'+ci).value=`${inp}\n\n（AI生成失败，已保留原始输入）`;
+  }
+  btn.classList.remove('loading'); btn.disabled=false;
+}
+
+async function genAll() {
+  const btn=document.getElementById('gen-all-btn');
+  btn.disabled=true; btn.textContent='生成中…';
+  for(let i=0;i<cats.length;i++){
+    if(document.getElementById('inp'+i)?.value.trim()) await genOne(i);
+  }
+  btn.disabled=false; btn.textContent='✦ 全部 AI 生成';
+}
+
+function getDesc(ci) {
+  return document.getElementById('out'+ci)?.value.trim() ||
+         document.getElementById('inp'+ci)?.value.trim() ||
+         '（未填写完成情况）';
+}
+
+// ═══════════════════════════════════════
+//  RESULT
+// ═══════════════════════════════════════
+function buildResult() {
+  let total=0;
+  let tblH=`<thead><tr><th>KPI大类</th><th>权重</th><th>自评分</th><th style="width:120px">分布</th><th>加权得分</th></tr></thead><tbody>`;
+  cats.forEach((cat,i)=>{
+    const s=getScr(i), w=cat.weight, ws=Math.round(s*w)/100;
+    total+=ws;
+    const pct=((s-60)/40*100).toFixed(0);
+    const col=s>=90?'var(--green)':s>=80?'var(--blue)':s>=70?'var(--gold)':'var(--red)';
+    tblH+=`<tr>
+      <td>${esc(cat.name)}</td><td>${w}%</td>
+      <td style="font-weight:700;color:${col}">${s}</td>
+      <td><div class="bar-wrap"><div class="bar-fill" style="width:${pct}%;background:${col}"></div></div></td>
+      <td style="color:${col}">${ws.toFixed(1)}</td>
+    </tr>`;
+  });
+  const fin=Math.round(total*10)/10;
+  const fc=fin>=90?'var(--green)':fin>=80?'var(--blue)':'var(--gold)';
+  tblH+=`<tr><td colspan="3" style="text-align:right;color:var(--muted);font-size:11px">加权总分</td><td></td><td style="font-size:18px;color:${fc}">${fin}</td></tr></tbody>`;
+  document.getElementById('res-table').innerHTML=tblH;
+
+  // Big score
+  document.getElementById('res-score-big').textContent=fin;
+  document.getElementById('res-score-big').style.color=fc;
+  const gradeText=fin>=92?'超额完成':fin>=82?'达成预期':fin>=72?'基本达成':'待提升';
+  const gradeColor=fin>=92?'var(--green)':fin>=82?'var(--blue)':'var(--gold)';
+  document.getElementById('res-grade').textContent=gradeText;
+  document.getElementById('res-grade').style.cssText=`background:${gradeColor}22;color:${gradeColor};border:1px solid ${gradeColor}55`;
+
+  // Cards
+  let cardsH='';
+  cats.forEach((cat,i)=>{
+    const s=getScr(i);
+    const col=s>=90?'var(--green)':s>=80?'var(--blue)':s>=70?'var(--gold)':'var(--red)';
+    const desc=getDesc(i);
+    cardsH+=`<div class="res-card">
+      <div class="res-head">
+        <div><div class="res-title">${i+1}. ${esc(cat.name)}</div><div style="font-size:11px;color:var(--muted)">权重 ${cat.weight}%</div></div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <button class="btn btn-sm btn-ghost" onclick="cp(${i})">复制</button>
+          <div class="res-score" style="color:${col}">${s}</div>
+        </div>
+      </div>
+      <div class="res-body">
+        <div class="res-text" id="rd${i}" contenteditable="true">${esc(desc)}</div>
+      </div>
+    </div>`;
+  });
+  document.getElementById('res-cards').innerHTML=cardsH;
+
+  // Export text
+  let txt=`年度KPI绩效自评\n${'═'.repeat(42)}\n\n`;
+  cats.forEach((cat,i)=>{
+    txt+=`【${i+1}. ${cat.name}】  权重：${cat.weight}%\n完成情况：\n${getDesc(i)}\n自评分数：${getScr(i)} 分\n\n`;
+  });
+  txt+=`${'─'.repeat(42)}\n加权总分：${fin} 分  （${fin>=92?'超额完成':fin>=82?'达成预期':fin>=72?'基本达成':'待提升'}）\n`;
+  document.getElementById('export-txt').textContent=txt;
+
+  go(3);
+}
+
+function cp(i){
+  const el=document.getElementById('rd'+i);
+  navigator.clipboard.writeText(el.innerText||el.textContent||'');
+  showToast('已复制 ✓');
+}
+
+function copyAll(){
+  navigator.clipboard.writeText(document.getElementById('export-txt').textContent);
+  showToast('已复制全文 ✓');
+}
+
+// ═══════════════════════════════════════
+//  EXCEL EXPORT
+// ═══════════════════════════════════════
+function dlExcel(){
+  const wb=XLSX.utils.book_new();
+
+  // Sheet 1
+  const rows=[
+    ['年度KPI绩效自评表','','','','',''],
+    [''],
+    ['序号','个人关键业绩指标（KPIs）','完成情况描述','自评分数','权重（%）','加权得分'],
+  ];
+  let tot=0;
+  cats.forEach((cat,i)=>{
+    const s=getScr(i), w=cat.weight;
+    const ws=Math.round(s*w*10)/1000;
+    tot+=ws;
+    const desc=(document.getElementById('rd'+i)?.innerText||getDesc(i)).trim();
+    rows.push([i+1, cat.name, desc, s, w+'%', ws]);
+  });
+  rows.push(['','','加权总分', Math.round(tot*10)/10, '100%','']);
+
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:5},{wch:22},{wch:58},{wch:10},{wch:10},{wch:12}];
+  ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:5}}];
+  const rowH=[{hpt:28},{hpt:6}];
+  cats.forEach((_,i)=>{
+    const desc=(document.getElementById('rd'+i)?.innerText||'').trim();
+    rowH.push({hpt:Math.max(42,Math.ceil(desc.length/28)*16)});
+  });
+  ws['!rows']=rowH;
+  XLSX.utils.book_append_sheet(wb,ws,'KPI自评');
+
+  // Sheet 2: summary
+  const s2=[
+    ['分数汇总','','','',''],
+    [''],
+    ['KPI大类','权重','自评分','加权得分','等级'],
+  ];
+  cats.forEach((cat,i)=>{
+    const s=getScr(i),w=cat.weight;
+    const grade=s>=92?'超额完成':s>=82?'达成预期':s>=72?'基本达成':'未达成';
+    s2.push([cat.name,w+'%',s,(s*w/100).toFixed(1),grade]);
+  });
+  const grand=Math.round(cats.reduce((a,_,i)=>a+getScr(i)*cats[i].weight/100,0)*10)/10;
+  s2.push(['','合计','',grand,grand>=92?'超额完成':grand>=82?'达成预期':'待提升']);
+  const ws2=XLSX.utils.aoa_to_sheet(s2);
+  ws2['!cols']=[{wch:22},{wch:8},{wch:10},{wch:10},{wch:12}];
+  XLSX.utils.book_append_sheet(wb,ws2,'分数汇总');
+
+  const d=new Date();
+  XLSX.writeFile(wb,`KPI自评_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}.xlsx`);
+}
+
+function pad(n){return String(n).padStart(2,'0')}
+
+// ═══════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+
+let toastTimer;
+function showToast(msg){
+  let t=document.getElementById('toast');
+  if(!t){
+    t=document.createElement('div');
+    t.id='toast';
+    Object.assign(t.style,{
+      position:'fixed',bottom:'32px',left:'50%',transform:'translateX(-50%)',
+      background:'#1a2540',border:'1px solid rgba(99,179,255,0.4)',
+      color:'var(--blue)',padding:'10px 20px',borderRadius:'20px',
+      fontSize:'13px',zIndex:'9999',transition:'opacity 0.3s',
+      boxShadow:'0 8px 32px rgba(0,0,0,0.4)'
+    });
+    document.body.appendChild(t);
+  }
+  t.textContent=msg; t.style.opacity='1';
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.style.opacity='0',2200);
+}
+</script>
+</body>
+</html>
