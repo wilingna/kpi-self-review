@@ -1,8 +1,8 @@
 # KPI 绩效自评 Skill
 
 > 把零散的工作成果，变成让 HR 和老板眼前一亮的绩效语言
+> 
 https://wilingna.github.io/kpi-self-review/
-适用于 Claude / Open Claude
 
 ---
 
