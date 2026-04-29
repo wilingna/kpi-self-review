@@ -245,7 +245,7 @@ MIT — use it, fork it, ship it.
 
 Built by **wilingna** ([@wilingna](https://github.com/wilingna))
 Big-tech HR turned AI Systems Architect. I spent **22 years** writing performance reviews, including for myself. Then I built this so I'd never have to do it the slow way again.
-大厂 HR 出身的 AI Systems Architect。我自己写了 **22 年**绩效评估，最后受不了，做了这个工具让自己再也不用慢慢写。
+大厂 HR 出身的 AI Systems Architect。我自己写了 **22 年**绩效评估，终于。。。做这个工具让自己再也不用慢慢写。
 
 - 🎬 小红书 / 抖音 / B 站 / 微信视频号: **会灵那**
 - 💻 GitHub: [@wilingna](https://github.com/wilingna)
